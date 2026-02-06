@@ -10,46 +10,52 @@ import ru.ssau.todo.entity.Task;
 @Repository
 public class TaskInMemoryRepository implements TaskRepository {
 
-    private long _idGen = 1; 
+    private long _idGen = 1;
 
     private Map<Long, Task> tasks = new HashMap<>();
 
-    public Task create(Task task){
-        try{
+    public Task create(Task task) {
+        try {
             task.setId(_idGen);
-            tasks.put(_idGen,task);
+            tasks.put(_idGen, task);
             _idGen++;
-        }
-        catch(IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Передана пустая задача", e);
         }
         return task;
     }
 
-    public Optional<Task> findById(long id){
+    public Optional<Task> findById(long id) {
         return Optional.ofNullable(tasks.get(id));
     }
 
-    public List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId){
-        //userId? Where i can use it
+    public List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId) {
         List<Task> tmp = new LinkedList<Task>();
-        for (long i = 1; i<tasks.size();i++){
-            if(from.isBefore(tasks.get(i).getCreatedAt())&&to.isAfter(tasks.get(i).getCreatedAt())){
-                tmp.add(tasks.get(i));
+        for (Map.Entry<Long, Task> task : tasks.entrySet()) {
+            if ((task.getValue().getUserId() == userId)
+                    && (from.isBefore(task.getValue().getCreatedAt()))
+                    && (to.isAfter(task.getValue().getCreatedAt()))) {
+                tmp.add(task.getValue());
             }
         }
         return tmp;
     }
 
-    public void update(Task task) throws Exception{
+    public void update(Task task) throws Exception {
         tasks.replace(task.getId(), task);
     }
 
-    public void deleteById(long id){
+    public void deleteById(long id) {
         tasks.remove(id);
     }
 
-    public long countActiveTasksByUserId(long userId){
-        return -1; //Where used userId? I cant find
+    public long countActiveTasksByUserId(long userId) {
+        int counter = 0;
+        for (Map.Entry<Long, Task> task : tasks.entrySet()) {
+            if ((task.getValue().getUserId() == userId)) {
+                counter++;
+            }
+        }
+        return counter;
     }
 }

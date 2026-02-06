@@ -9,18 +9,31 @@ public class Task {
     long createdBy;
     LocalDateTime createdAt;
 
-    public long getId(){
+    public Task(String title, long createdBy, TaskStatus status) {
+        this.title = title;
+        this.createdBy = createdBy;
+        this.status = status;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public long getId() {
         return id;
     }
-    public void setId(long id){
-        this.id=id;
+
+    public void setId(long id) {
+        this.id = id;
     }
-    public LocalDateTime getCreatedAt(){
+
+    public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public long getUserId() {
+        return createdBy;
     }
 }
 
-enum TaskStatus{
+enum TaskStatus {
     OPEN,
     DONE,
     IN_PROGRESS,
