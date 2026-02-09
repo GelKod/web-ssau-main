@@ -31,11 +31,16 @@ public class Task {
     public long getUserId() {
         return createdBy;
     }
-}
 
-enum TaskStatus {
-    OPEN,
-    DONE,
-    IN_PROGRESS,
-    CLOSED
+    public String getTitle() {
+        return this.title;
+    }
+
+    public TaskStatus getStatus() {
+        return this.status;
+    }
+
+    public void setDataTime() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

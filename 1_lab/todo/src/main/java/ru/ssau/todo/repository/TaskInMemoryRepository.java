@@ -17,6 +17,7 @@ public class TaskInMemoryRepository implements TaskRepository {
     public Task create(Task task) {
         try {
             task.setId(_idGen);
+            task.setDataTime();
             tasks.put(_idGen, task);
             _idGen++;
         } catch (IllegalArgumentException e) {
@@ -30,7 +31,7 @@ public class TaskInMemoryRepository implements TaskRepository {
     }
 
     public List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId) {
-        List<Task> tmp = new LinkedList<Task>();
+        List<Task> tmp = new LinkedList<>();
         for (Map.Entry<Long, Task> task : tasks.entrySet()) {
             if ((task.getValue().getUserId() == userId)
                     && (from.isBefore(task.getValue().getCreatedAt()))
