@@ -32,11 +32,16 @@ public class TaskInMemoryRepository implements TaskRepository {
 
     public List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId) {
         List<Task> tmp = new LinkedList<>();
+
         for (Map.Entry<Long, Task> task : tasks.entrySet()) {
-            if ((task.getValue().getUserId() == userId)
-                    && (from.isBefore(task.getValue().getCreatedAt()))
-                    && (to.isAfter(task.getValue().getCreatedAt()))) {
-                tmp.add(task.getValue());
+            Task t = task.getValue();
+            LocalDateTime createdAt = t.getCreatedAt();
+            boolean isAfterOrEqualFrom = !createdAt.isBefore(from);
+            boolean isBeforeOrEqualTo = !createdAt.isAfter(to);
+            if (t.getUserId() == userId
+                    && isBeforeOrEqualTo
+                    && isAfterOrEqualFrom) {
+                tmp.add(t);
             }
         }
         return tmp;

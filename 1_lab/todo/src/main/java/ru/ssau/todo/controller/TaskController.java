@@ -22,10 +22,10 @@ public class TaskController {
         this.taskRepository = taskRepository;
     }
 
-    @GetMapping("?from={from}&to={to}&userId={userId}")
-    public ResponseEntity<List<Task>> findAll(@PathVariable long userId,
-            @PathVariable(required = false) LocalDateTime from,
-            @PathVariable(required = false) LocalDateTime to) {
+    @GetMapping
+    public ResponseEntity<List<Task>> findAll(@RequestParam long userId,
+            @RequestParam(required = false) LocalDateTime from,
+            @RequestParam(required = false) LocalDateTime to) {
         if (from == null) {
             from = LocalDateTime.MIN;
         }
@@ -68,8 +68,8 @@ public class TaskController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/active/count?userId={userId}")
-    public ResponseEntity<Long> countTasks(@PathVariable long userId) {
+    @GetMapping("/active/count")
+    public ResponseEntity<Long> countTasks(@RequestParam long userId) {
         long count = taskRepository.countActiveTasksByUserId(userId);
         return ResponseEntity.ok().body(count);
     }
