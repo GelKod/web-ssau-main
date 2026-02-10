@@ -48,7 +48,9 @@ public class TaskInMemoryRepository implements TaskRepository {
     }
 
     public void update(Task task) throws Exception {
-        tasks.replace(task.getId(), task);
+        Task temp = findById(task.getId()).get();
+        temp.setStatus(task.getStatus());
+        temp.setTitle(task.getTitle());
     }
 
     public void deleteById(long id) {

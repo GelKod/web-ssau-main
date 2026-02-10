@@ -9,9 +9,11 @@ public class Task {
     long createdBy;
     LocalDateTime createdAt;
 
-    public Task(String title, long createdBy, TaskStatus status) {
+    public Task(String title, Long createdBy, TaskStatus status) {
         this.title = title;
-        this.createdBy = createdBy;
+        if (createdBy != null) {
+            this.createdBy = createdBy;
+        }
         this.status = status;
         this.createdAt = LocalDateTime.now();
     }
@@ -32,12 +34,24 @@ public class Task {
         return createdBy;
     }
 
+    public void setUserId(long userId) {
+        this.createdBy = userId;
+    }
+
     public String getTitle() {
         return this.title;
     }
 
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
     public TaskStatus getStatus() {
         return this.status;
+    }
+
+    public void setStatus(TaskStatus status) {
+        this.status = status;
     }
 
     public void setDataTime() {
