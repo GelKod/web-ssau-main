@@ -6,6 +6,7 @@ import java.util.*;
 import org.springframework.stereotype.Repository;
 
 import ru.ssau.todo.entity.Task;
+import ru.ssau.todo.entity.TaskStatus;
 
 @Repository
 public class TaskInMemoryRepository implements TaskRepository {
@@ -60,7 +61,9 @@ public class TaskInMemoryRepository implements TaskRepository {
     public long countActiveTasksByUserId(long userId) {
         int counter = 0;
         for (Map.Entry<Long, Task> task : tasks.entrySet()) {
-            if ((task.getValue().getUserId() == userId)) {
+            TaskStatus status = task.getValue().getStatus();
+            Long userIdLong = task.getValue().getUserId();
+            if ((userIdLong == userId) && ((status == TaskStatus.OPEN) || (status == TaskStatus.IN_PROGRESS))) {
                 counter++;
             }
         }

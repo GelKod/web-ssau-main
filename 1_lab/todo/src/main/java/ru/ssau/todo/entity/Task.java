@@ -13,9 +13,12 @@ public class Task {
         this.title = title;
         if (createdBy != null) {
             this.createdBy = createdBy;
+        } else {
+            this.createdBy = 0;
         }
         this.status = status;
         this.createdAt = LocalDateTime.now();
+        this.id = 0;
     }
 
     public long getId() {
