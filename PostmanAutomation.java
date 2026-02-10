@@ -24,10 +24,6 @@ public class PostmanAutomation {
     private static final String SUB_LINE = "-".repeat(60);
 
     public static void main(String[] args) throws Exception {
-        // Настройка вывода для корректного отображения
-        System.setProperty("file.encoding", "UTF-8");
-        PrintStream out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
-        System.setOut(out);
 
         printHeader("ЗАПУСК POSTMAN-АВТОМАТИЗАЦИИ");
         System.out.println("URL сервера: " + BASE_URL);
