@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import ru.ssau.todo.entity.Task;
 import ru.ssau.todo.entity.TaskStatus;
+import ru.ssau.todo.exception.TaskNotFoundException;
 
 @Repository
 public class TaskInMemoryRepository implements TaskRepository {
@@ -48,7 +49,7 @@ public class TaskInMemoryRepository implements TaskRepository {
         return tmp;
     }
 
-    public void update(Task task) throws Exception {
+    public void update(Task task) throws TaskNotFoundException {
         Task temp = findById(task.getId()).get();
         temp.setStatus(task.getStatus());
         temp.setTitle(task.getTitle());
