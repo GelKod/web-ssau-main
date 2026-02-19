@@ -220,7 +220,7 @@ public class PostmanAutomation {
 
         if (statusOk) {
             Pattern idPattern = Pattern.compile("\"id\":(\\d+)");
-            Pattern userIdPattern = Pattern.compile("\"userId\":(\\d+)");
+            Pattern userIdPattern = Pattern.compile("\"createdBy\":(\\d+)");
 
             Matcher idMatcher = idPattern.matcher(response);
             Matcher userIdMatcher = userIdPattern.matcher(response);
@@ -317,13 +317,16 @@ public class PostmanAutomation {
         String response = sendRequest(method, url, body);
         boolean statusOk = response.contains(expectedStatus);
         boolean contentOk = true;
-
+        System.out.println(response);
+        System.out.println(statusOk);
         if (expectedContent != null) {
             contentOk = shouldMatch ? response.contains(expectedContent) : !response.contains(expectedContent);
+            System.out.println(expectedContent);
         }
 
         boolean testPassed = statusOk && contentOk;
 
+        System.out.println(testPassed);
         System.out.print("  " + testName + ": ");
         if (testPassed) {
             System.out.println("[PASS]");

@@ -39,7 +39,7 @@ public class TaskInMemoryRepository implements TaskRepository {
             LocalDateTime createdAt = t.getCreatedAt();
             boolean isAfterOrEqualFrom = !createdAt.isBefore(from);
             boolean isBeforeOrEqualTo = !createdAt.isAfter(to);
-            if (t.getUserId() == userId
+            if (t.getCreatedBy() == userId
                     && isBeforeOrEqualTo
                     && isAfterOrEqualFrom) {
                 tmp.add(t);
@@ -62,7 +62,7 @@ public class TaskInMemoryRepository implements TaskRepository {
         int counter = 0;
         for (Map.Entry<Long, Task> task : tasks.entrySet()) {
             TaskStatus status = task.getValue().getStatus();
-            Long userIdLong = task.getValue().getUserId();
+            Long userIdLong = task.getValue().getCreatedBy();
             if ((userIdLong == userId) && ((status == TaskStatus.OPEN) || (status == TaskStatus.IN_PROGRESS))) {
                 counter++;
             }

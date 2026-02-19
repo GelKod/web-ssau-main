@@ -33,12 +33,12 @@ public class Task {
         return createdAt;
     }
 
-    public long getUserId() {
+    public long getCreatedBy() {
         return createdBy;
     }
 
-    public void setUserId(long userId) {
-        this.createdBy = userId;
+    public void setCreatedBy(long createdBy) {
+        this.createdBy = createdBy;
     }
 
     public String getTitle() {
