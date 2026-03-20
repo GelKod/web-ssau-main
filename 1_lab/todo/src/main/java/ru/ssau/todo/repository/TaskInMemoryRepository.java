@@ -3,6 +3,7 @@ package ru.ssau.todo.repository;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import ru.ssau.todo.entity.Task;
@@ -10,6 +11,7 @@ import ru.ssau.todo.entity.TaskStatus;
 import ru.ssau.todo.exception.TaskNotFoundException;
 
 @Repository
+@Profile("memory")
 public class TaskInMemoryRepository implements TaskRepository {
 
     private long _idGen = 1;
@@ -17,14 +19,13 @@ public class TaskInMemoryRepository implements TaskRepository {
     private Map<Long, Task> tasks = new HashMap<>();
 
     public Task create(Task task) {
-        try {
-            task.setId(_idGen);
-            task.setDataTime();
-            tasks.put(_idGen, task);
-            _idGen++;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Передана пустая задача", e);
+        if (task == null) {
+            throw new IllegalArgumentException("Передана пустая задача");
         }
+        task.setId(_idGen);
+        task.setDataTime();
+        tasks.put(_idGen, task);
+        _idGen++;
         return task;
     }
 

@@ -3,11 +3,11 @@ package ru.ssau.todo.entity;
 import java.time.LocalDateTime;
 
 public class Task {
-    long id;
-    String title;
-    TaskStatus status;
-    long createdBy;
-    LocalDateTime createdAt;
+    private long id;
+    private String title;
+    private TaskStatus status;
+    private long createdBy;
+    private LocalDateTime createdAt;
 
     public Task(String title, Long createdBy, TaskStatus status) {
         this.title = title;
