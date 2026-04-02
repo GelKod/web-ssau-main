@@ -40,10 +40,18 @@ public class TaskService {
     }
 
     public void updateTask(Task task) throws Exception {
-        long userId = task.getCreatedBy();
-        long activeCount = taskRepository.countActiveTasksByUserId(userId);
-        if (activeCount >= 10) {
-            throw new IllegalStateException("У пользователя больше 10 активных задач");
+        Optional<Task> existingTaskOpt = taskRepository.findById(task.getId());
+        if (existingTaskOpt.isPresent()) {
+            Task existing = existingTaskOpt.get();
+            boolean wasActive = existing.getStatus() == TaskStatus.OPEN || existing.getStatus() == TaskStatus.IN_PROGRESS;
+            boolean isActive = task.getStatus() == TaskStatus.OPEN || task.getStatus() == TaskStatus.IN_PROGRESS;
+
+            if (!wasActive && isActive) {
+                long activeCount = taskRepository.countActiveTasksByUserId(task.getCreatedBy());
+                if (activeCount >= 10) {
+                    throw new IllegalStateException("У пользователя больше 10 активных задач");
+                }
+            }
         }
         taskRepository.update(task);
     }
@@ -57,7 +65,7 @@ public class TaskService {
         Task task = optionalTask.get();
         LocalDateTime now = LocalDateTime.now();
         if (task.getCreatedAt().plusMinutes(5).isAfter(now)) {
-            throw new IllegalStateException("Невозможно удалить задачу созданную ранее чем 5 минут.");
+            throw new IllegalStateException("Невозможно удалить задачу, созданную менее 5 минут назад.");
         }
 
         taskRepository.deleteById(id);
