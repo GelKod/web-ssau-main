@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+// TODO: Lab 3 - migrate to JPA
 @Service
 public class TaskService {
 
