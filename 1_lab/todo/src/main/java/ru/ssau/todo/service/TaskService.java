@@ -45,8 +45,8 @@ public class TaskService {
         }
 
         Task task = new Task(taskDto.getTitle(), user, taskDto.getStatus());
-        taskRepository.save(task);
-        return taskDto;
+        task = taskRepository.save(task);
+        return toDto(task);
     }
 
     public Optional<TaskDto> findById(long id) {
