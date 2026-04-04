@@ -12,6 +12,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+//Delet запрос который проходит полностью
+//пут с проверкой глубоко на опен и ин прогресс.
+//оформить тесты через фреймворки. Подумать над оптимизацией процесса и переделать время.
+
 /**
  * Automated test for JDBC repository TaskJdbcRepository.
  * Clears database before tests (TRUNCATE).
@@ -402,7 +406,7 @@ public class JdbcTaskTest {
         Integer id2 = extractIdFromResponse(resp2);
 
         try {
-            Thread.sleep(1000);
+            Thread.sleep(5000);
         } catch (InterruptedException e) {
         }
         LocalDateTime afterSecond = LocalDateTime.now();
