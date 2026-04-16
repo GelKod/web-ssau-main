@@ -1,71 +1,34 @@
 package ru.ssau.todo.repository;
 
-import java.util.*;
 import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import ru.ssau.todo.entity.Task;
-import ru.ssau.todo.exception.TaskNotFoundException;
 
-/**
- * Интерфейс репозитория для управления жизненным циклом сущностей {@link Task}.
- * Обеспечивает абстракцию над механизмом хранения данных.
- */
-public interface TaskRepository {
+public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    /**
-     * Сохраняет новую задачу в хранилище.
-     * При сохранении репозиторий обязан присвоить задаче уникальный идентификатор.
-     *
-     * @param task объект задачи для сохранения (без ID).
-     * @return сохраненный экземпляр задачи с назначенным идентификатором.
-     * @throws IllegalArgumentException если передана пустая задача (null).
-     */
-    Task create(Task task);
+    @Query(value = """
+            SELECT *
+            FROM task
+            WHERE created_by = :userId
+              AND created_at >= :from
+              AND created_at <= :to
+            ORDER BY id
+            """, nativeQuery = true)
+    List<Task> findByCreatedAtBetweenAndUserId(@Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("userId") Long userId);
 
-    /**
-     * Выполняет поиск задачи по её уникальному идентификатору.
-     *
-     * @param id уникальный идентификатор задачи.
-     * @return {@link Optional}, содержащий найденную задачу,
-     *         или пустой Optional, если задача с таким ID не найдена.
-     */
-    Optional<Task> findById(long id);
-
-    /**
-     * Возвращает список всех задач конкретного пользователя, созданных в указанном
-     * временном диапазоне.
-     *
-     * @param from   начальная граница даты создания (включительно).
-     * @param to     конечная граница даты создания (включительно).
-     * @param userId уникальный идентификатор пользователя-владельца.
-     * @return список задач, соответствующих критериям поиска. Если ничего не
-     *         найдено, возвращается пустой список.
-     */
-    List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId);
-
-    /**
-     * Обновляет данные существующей задачи в хранилище.
-     * Поиск записи для обновления осуществляется по полю ID, содержащемуся в
-     * объекте task.
-     *
-     * @param task объект задачи с обновленными данными.
-     * @throws Exception (специализированное исключение) если задача с таким ID не
-     *                   существует.
-     */
-    void update(Task task) throws TaskNotFoundException;
-
-    /**
-     * Удаляет задачу из хранилища по её идентификатору.
-     *
-     * @param id идентификатор задачи, которую необходимо удалить.
-     */
-    void deleteById(long id);
-
-    /**
-     * Подсчитывает количество "активных" задач для конкретного пользователя.
-     * Активной считается задача, находящаяся в статусе OPEN или IN_PROGRESS.
-     *
-     * @param userId идентификатор пользователя.
-     * @return количество активных задач.
-     */
-    long countActiveTasksByUserId(long userId);
+    @Query("""
+            select count(t)
+            from Task t
+            where t.createdBy.id = :userId
+              and (t.status = ru.ssau.todo.entity.TaskStatus.OPEN
+                   or t.status = ru.ssau.todo.entity.TaskStatus.IN_PROGRESS)
+            """)
+    long countActiveTasksByUserId(@Param("userId") Long userId);
 }
