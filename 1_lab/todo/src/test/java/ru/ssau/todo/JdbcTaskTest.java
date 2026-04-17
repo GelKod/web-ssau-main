@@ -429,6 +429,93 @@ class JdbcTaskTest {
         assertEquals(1, tasks.size(), "PUT должен обновить существующую задачу, а не создать новую запись");
     }
 
+/**
+ * Проверяет бизнес-ограничение при обновлении задачи: переход неактивной задачи в активный статус
+ * не должен превышать лимит в 10 активных задач для пользователя.
+ * <p>
+ * Сценарий:
+ * <ol>
+ *   <li>Создаётся пользователь с 8 активными и 3 неактивными задачами.</li>
+ *   <li>Первое обновление неактивной → активная (9) – успех.</li>
+ *   <li>Второе обновление неактивной → активная (10) – успех.</li>
+ *   <li>Третье обновление неактивной → активная (превышение лимита) – ошибка 500.</li>
+ * </ol>
+ */
+@Test
+void updateTaskToActiveStatusEnforcesActiveLimit() {
+    User user = createUser("update-limit");
+    
+    // 8 активных задач (OPEN)
+    for (int i = 0; i < 8; i++) {
+        createTask(user, "Active " + i, TaskStatus.OPEN, LocalDateTime.now().minusHours(1).plusMinutes(i));
+    }
+    
+    // 3 неактивные задачи (DONE)
+    Task inactive1 = createTask(user, "Inactive 1", TaskStatus.DONE, LocalDateTime.now().minusMinutes(30));
+    Task inactive2 = createTask(user, "Inactive 2", TaskStatus.DONE, LocalDateTime.now().minusMinutes(25));
+    Task inactive3 = createTask(user, "Inactive 3", TaskStatus.DONE, LocalDateTime.now().minusMinutes(20));
+
+    // Проверяем стартовое количество активных задач
+    Response countResp = RestAssured.given()
+            .spec(tasksRequest())
+            .queryParam("userId", user.getId().intValue())
+            .when()
+            .get("/active/count");
+    assertEquals(8, countResp.as(Integer.class));
+
+    // Обновляем первую неактивную → активная (OPEN)
+    RestAssured.given()
+            .spec(tasksRequest())
+            .contentType(JSON)
+            .body(taskPayload("Inactive 1 updated", user.getId(), "OPEN"))
+            .when()
+            .put("/{id}", inactive1.getId())
+            .then()
+            .statusCode(200);
+
+    countResp = RestAssured.given()
+            .spec(tasksRequest())
+            .queryParam("userId", user.getId().intValue())
+            .when()
+            .get("/active/count");
+    assertEquals(9, countResp.as(Integer.class));
+
+    // Обновляем вторую → активная (IN_PROGRESS)
+    RestAssured.given()
+            .spec(tasksRequest())
+            .contentType(JSON)
+            .body(taskPayload("Inactive 2 updated", user.getId(), "IN_PROGRESS"))
+            .when()
+            .put("/{id}", inactive2.getId())
+            .then()
+            .statusCode(200);
+
+    countResp = RestAssured.given()
+            .spec(tasksRequest())
+            .queryParam("userId", user.getId().intValue())
+            .when()
+            .get("/active/count");
+    assertEquals(10, countResp.as(Integer.class));
+
+    // Попытка обновить третью → активная (должно превысить лимит)
+    RestAssured.given()
+            .spec(tasksRequest())
+            .contentType(JSON)
+            .body(taskPayload("Inactive 3 updated", user.getId(), "OPEN"))
+            .when()
+            .put("/{id}", inactive3.getId())
+            .then()
+            .statusCode(404);
+
+    // Убеждаемся, что активных всё ещё 10
+    countResp = RestAssured.given()
+            .spec(tasksRequest())
+            .queryParam("userId", user.getId().intValue())
+            .when()
+            .get("/active/count");
+    assertEquals(10, countResp.as(Integer.class));
+}
+
     /**
      * Вспомогательный метод для создания и сохранения тестового пользователя с уникальным именем.
      *
