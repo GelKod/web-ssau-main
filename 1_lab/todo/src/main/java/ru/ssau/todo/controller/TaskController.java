@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import ru.ssau.todo.dto.TaskDto;
 import ru.ssau.todo.entity.Task;
 import ru.ssau.todo.service.TaskService;
 
@@ -23,7 +24,7 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Task>> findAll(@RequestParam long userId,
+    public ResponseEntity<List<TaskDto>> findAll(@RequestParam long userId,
             @RequestParam(required = false) LocalDateTime from,
             @RequestParam(required = false) LocalDateTime to) {
         if (from == null) {
@@ -36,8 +37,8 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Task> findById(@PathVariable Long id) {
-        Optional<Task> task = taskService.findById(id);
+    public ResponseEntity<TaskDto> findById(@PathVariable Long id) {
+        Optional<TaskDto> task = taskService.findById(id);
         if (task.isPresent()) {
             return ResponseEntity.ok().body(task.get());
         } else {
@@ -46,13 +47,13 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody Task task) {
-        Task taskTmp = taskService.create(task);
+    public ResponseEntity<TaskDto> createTask(@RequestBody TaskDto task) {
+        TaskDto taskTmp = taskService.create(task);
         return ResponseEntity.created(URI.create("tasks/" + taskTmp.getId())).body(taskTmp);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateTask(@PathVariable long id, @RequestBody Task task) {
+    public ResponseEntity<Void> updateTask(@PathVariable long id, @RequestBody TaskDto task) {
         task.setId(id);
         try {
             taskService.updateTask(task);

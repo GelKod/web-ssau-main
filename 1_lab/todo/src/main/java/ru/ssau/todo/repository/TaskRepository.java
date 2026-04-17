@@ -1,35 +1,19 @@
 package ru.ssau.todo.repository;
 
 import java.util.*;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import ru.ssau.todo.entity.Task;
-import ru.ssau.todo.exception.TaskNotFoundException;
 
 /**
  * Интерфейс репозитория для управления жизненным циклом сущностей {@link Task}.
  * Обеспечивает абстракцию над механизмом хранения данных.
  */
-public interface TaskRepository {
-
-    /**
-     * Сохраняет новую задачу в хранилище.
-     * При сохранении репозиторий обязан присвоить задаче уникальный идентификатор.
-     *
-     * @param task объект задачи для сохранения (без ID).
-     * @return сохраненный экземпляр задачи с назначенным идентификатором.
-     * @throws IllegalArgumentException если передана пустая задача (null).
-     */
-    Task create(Task task);
-
-    /**
-     * Выполняет поиск задачи по её уникальному идентификатору.
-     *
-     * @param id уникальный идентификатор задачи.
-     * @return {@link Optional}, содержащий найденную задачу,
-     *         или пустой Optional, если задача с таким ID не найдена.
-     */
-    Optional<Task> findById(long id);
-
+public interface TaskRepository extends JpaRepository<Task, Long> {
     /**
      * Возвращает список всех задач конкретного пользователя, созданных в указанном
      * временном диапазоне.
@@ -40,25 +24,10 @@ public interface TaskRepository {
      * @return список задач, соответствующих критериям поиска. Если ничего не
      *         найдено, возвращается пустой список.
      */
-    List<Task> findAll(LocalDateTime from, LocalDateTime to, long userId);
-
-    /**
-     * Обновляет данные существующей задачи в хранилище.
-     * Поиск записи для обновления осуществляется по полю ID, содержащемуся в
-     * объекте task.
-     *
-     * @param task объект задачи с обновленными данными.
-     * @throws Exception (специализированное исключение) если задача с таким ID не
-     *                   существует.
-     */
-    void update(Task task) throws TaskNotFoundException;
-
-    /**
-     * Удаляет задачу из хранилища по её идентификатору.
-     *
-     * @param id идентификатор задачи, которую необходимо удалить.
-     */
-    void deleteById(long id);
+    @Query(value = "SELECT * FROM task t WHERE t.created_by = :userId AND t.created_at >= :from AND t.created_at <= :to", nativeQuery = true)
+    List<Task> findAll(@Param("userId") Long userId,
+                        @Param("from") LocalDateTime from,
+                        @Param("to") LocalDateTime to);
 
     /**
      * Подсчитывает количество "активных" задач для конкретного пользователя.
@@ -67,5 +36,6 @@ public interface TaskRepository {
      * @param userId идентификатор пользователя.
      * @return количество активных задач.
      */
-    long countActiveTasksByUserId(long userId);
+    @Query("SELECT COUNT(t) FROM Task t WHERE t.createdByUser.id = :userId AND t.status IN ('OPEN', 'IN_PROGRESS')")
+    long countActiveTasksByUserId(@Param("userId") Long userId);
 }
