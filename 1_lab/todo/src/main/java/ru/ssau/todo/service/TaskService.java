@@ -1,7 +1,6 @@
 package ru.ssau.todo.service;
 
 import org.springframework.stereotype.Service;
-
 import ru.ssau.todo.dto.TaskDto;
 import ru.ssau.todo.entity.Task;
 import ru.ssau.todo.entity.TaskStatus;
@@ -10,14 +9,11 @@ import ru.ssau.todo.exception.TaskNotFoundException;
 import ru.ssau.todo.repository.TaskRepository;
 import ru.ssau.todo.repository.UserRepository;
 
-import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-// TODO: Lab 3 - migrate to JPA
 @Service
 public class TaskService {
 
@@ -31,22 +27,22 @@ public class TaskService {
 
     public TaskDto create(TaskDto taskDto) {
         Optional<User> optUser = userRepository.findById(taskDto.getCreatedBy());
-        if(optUser.isEmpty()){
+        if (optUser.isEmpty()) {
             throw new IllegalStateException("Пользователь не найден");
         }
-        User user = optUser.get();
 
+        User user = optUser.get();
         long activeCount = taskRepository.countActiveTasksByUserId(user.getId());
         if (activeCount >= 10) {
             throw new IllegalStateException("У пользователя больше 10 активных задач");
         }
+
         if (taskDto.getStatus() == null) {
             taskDto.setStatus(TaskStatus.OPEN);
         }
 
         Task task = new Task(taskDto.getTitle(), user, taskDto.getStatus());
-        task = taskRepository.save(task);
-        return toDto(task);
+        return toDto(taskRepository.save(task));
     }
 
     public Optional<TaskDto> findById(long id) {
@@ -60,30 +56,32 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
-    public void updateTask(TaskDto task) throws TaskNotFoundException {
-        Optional<TaskDto> existingTaskOpt = taskRepository.findById(task.getId()).map(this::toDto);
-        User user;
-        if (existingTaskOpt.isPresent()) {
-            TaskDto existing = existingTaskOpt.get();
-            boolean wasActive = existing.getStatus() == TaskStatus.OPEN || existing.getStatus() == TaskStatus.IN_PROGRESS;
-            boolean isActive = task.getStatus() == TaskStatus.OPEN || task.getStatus() == TaskStatus.IN_PROGRESS;
+    public void updateTask(TaskDto taskDto) throws TaskNotFoundException {
+        Task existingTask = taskRepository.findById(taskDto.getId())
+                .orElseThrow(() -> new TaskNotFoundException(taskDto.getId()));
 
-            if(userRepository.findById(existing.getId()).isEmpty()){
-                throw new TaskNotFoundException(existing.getId());
-            }
-            user = userRepository.findById(existing.getId()).get();
+        User user = userRepository.findById(existingTask.getCreatedByUser().getId())
+                .orElseThrow(() -> new TaskNotFoundException(existingTask.getCreatedByUser().getId()));
 
-            if (!wasActive && isActive) {
-                long activeCount = taskRepository.countActiveTasksByUserId(existing.getCreatedBy());
-                if (activeCount >= 10) {
-                    throw new IllegalStateException("У пользователя больше 10 активных задач");
-                }
+        boolean wasActive = existingTask.getStatus() == TaskStatus.OPEN
+                || existingTask.getStatus() == TaskStatus.IN_PROGRESS;
+        TaskStatus newStatus = taskDto.getStatus() == null ? existingTask.getStatus() : taskDto.getStatus();
+        boolean isActive = newStatus == TaskStatus.OPEN || newStatus == TaskStatus.IN_PROGRESS;
+
+        if (!wasActive && isActive) {
+            long activeCount = taskRepository.countActiveTasksByUserId(user.getId());
+            if (activeCount >= 10) {
+                throw new IllegalStateException("У пользователя больше 10 активных задач");
             }
         }
-        else{
-            throw new TaskNotFoundException(task.getId());
+
+        if (taskDto.getTitle() != null) {
+            existingTask.setTitle(taskDto.getTitle());
         }
-        taskRepository.save(new Task(existingTaskOpt.get().getTitle(), user,existingTaskOpt.get().getStatus()));
+        existingTask.setStatus(newStatus);
+        existingTask.setCreatedByUser(user);
+
+        taskRepository.save(existingTask);
     }
 
     public void deleteById(long id) {
@@ -105,7 +103,7 @@ public class TaskService {
         return taskRepository.countActiveTasksByUserId(userId);
     }
 
-    public TaskDto toDto(Task task){
+    public TaskDto toDto(Task task) {
         TaskDto dto = new TaskDto();
         dto.setId(task.getId());
         dto.setTitle(task.getTitle());

@@ -1,14 +1,15 @@
 package ru.ssau.todo;
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
+import io.restassured.module.mockmvc.RestAssuredMockMvc;
+import io.restassured.module.mockmvc.response.MockMvcResponse;
+import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.context.WebApplicationContext;
 import ru.ssau.todo.entity.Task;
 import ru.ssau.todo.entity.TaskStatus;
 import ru.ssau.todo.entity.User;
@@ -27,15 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 class JdbcTaskTest {
 
     private static final String TEST_USER_PREFIX = "it-jdbc-task-";
-
-    @LocalServerPort
-    private int port;
 
     @Autowired
     private TaskRepository taskRepository;
@@ -46,15 +45,20 @@ class JdbcTaskTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private WebApplicationContext context;
+
     @BeforeEach
     void setUp() {
         ensureSchema();
         cleanupTestData();
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+        RestAssuredMockMvc.webAppContextSetup(context);
+        RestAssuredMockMvc.enableLoggingOfRequestAndResponseIfValidationFails();
     }
 
     @AfterEach
     void tearDown() {
+        RestAssuredMockMvc.reset();
         cleanupTestData();
     }
 
@@ -62,11 +66,11 @@ class JdbcTaskTest {
     void createTaskReturnsCreatedTaskDto() {
         User user = createUser("create");
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("Create via API", user.getId(), "IN_PROGRESS"))
                 .when()
-                .post(tasksUrl());
+                .post("/tasks");
 
         response.then().statusCode(201);
 
@@ -83,18 +87,17 @@ class JdbcTaskTest {
     @Test
     void createTaskUsesOpenStatusWhenStatusIsMissing() {
         User user = createUser("default-status");
-        String payload = """
-                {
-                  "title": "Task with default status",
-                  "createdBy": %d
-                }
-                """.formatted(user.getId());
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .contentType(JSON)
-                .body(payload)
+                .body("""
+                        {
+                          "title": "Task with default status",
+                          "createdBy": %d
+                        }
+                        """.formatted(user.getId()))
                 .when()
-                .post(tasksUrl());
+                .post("/tasks");
 
         response.then().statusCode(201);
         assertEquals("OPEN", response.jsonPath().getString("status"));
@@ -102,13 +105,11 @@ class JdbcTaskTest {
 
     @Test
     void createTaskFailsForUnknownUser() {
-        RestAssured.given()
+        assertThrows(ServletException.class, () -> RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("Unknown user task", Long.MAX_VALUE, "OPEN"))
                 .when()
-                .post(tasksUrl())
-                .then()
-                .statusCode(500);
+                .post("/tasks"));
     }
 
     @Test
@@ -116,9 +117,9 @@ class JdbcTaskTest {
         User user = createUser("dto");
         Task task = createTask(user, "DTO task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(10));
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .when()
-                .get(tasksUrl() + "/" + task.getId());
+                .get("/tasks/{id}", task.getId());
 
         response.then().statusCode(200);
 
@@ -134,9 +135,9 @@ class JdbcTaskTest {
 
     @Test
     void findByIdReturns404ForMissingTask() {
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .when()
-                .get(tasksUrl() + "/" + Long.MAX_VALUE)
+                .get("/tasks/{id}", Long.MAX_VALUE)
                 .then()
                 .statusCode(404);
     }
@@ -152,12 +153,12 @@ class JdbcTaskTest {
         Task lateTask = createTask(firstUser, "Late task", TaskStatus.IN_PROGRESS, baseTime.plusMinutes(20));
         createTask(secondUser, "Other user task", TaskStatus.OPEN, baseTime.plusMinutes(15));
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .queryParam("userId", firstUser.getId())
                 .queryParam("from", baseTime.plusMinutes(5).toString())
                 .queryParam("to", baseTime.plusMinutes(15).toString())
                 .when()
-                .get(tasksUrl());
+                .get("/tasks");
 
         response.then().statusCode(200);
 
@@ -181,13 +182,13 @@ class JdbcTaskTest {
         createTask(user, "Done task", TaskStatus.DONE, LocalDateTime.now().minusMinutes(40));
         createTask(user, "Closed task", TaskStatus.CLOSED, LocalDateTime.now().minusMinutes(30));
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .queryParam("userId", user.getId())
                 .when()
-                .get(tasksUrl() + "/active/count");
+                .get("/tasks/active/count");
 
         response.then().statusCode(200);
-        assertEquals(2, response.as(Integer.class));
+        assertEquals("2", response.getBody().asString());
     }
 
     @Test
@@ -197,13 +198,11 @@ class JdbcTaskTest {
             createTask(user, "Active task " + i, TaskStatus.OPEN, LocalDateTime.now().minusHours(1).plusMinutes(i));
         }
 
-        RestAssured.given()
+        assertThrows(ServletException.class, () -> RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("Active task 11", user.getId(), "OPEN"))
                 .when()
-                .post(tasksUrl())
-                .then()
-                .statusCode(500);
+                .post("/tasks"));
     }
 
     @Test
@@ -211,11 +210,9 @@ class JdbcTaskTest {
         User user = createUser("fresh-delete");
         Task task = createTask(user, "Fresh task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(1));
 
-        RestAssured.given()
+        assertThrows(ServletException.class, () -> RestAssuredMockMvc.given()
                 .when()
-                .delete(tasksUrl() + "/" + task.getId())
-                .then()
-                .statusCode(500);
+                .delete("/tasks/{id}", task.getId()));
 
         assertTrue(taskRepository.findById(task.getId()).isPresent());
     }
@@ -225,9 +222,9 @@ class JdbcTaskTest {
         User user = createUser("old-delete");
         Task task = createTask(user, "Old task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(6));
 
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .when()
-                .delete(tasksUrl() + "/" + task.getId())
+                .delete("/tasks/{id}", task.getId())
                 .then()
                 .statusCode(204);
 
@@ -236,9 +233,9 @@ class JdbcTaskTest {
 
     @Test
     void deleteTaskReturns204ForMissingTask() {
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .when()
-                .delete(tasksUrl() + "/" + Long.MAX_VALUE)
+                .delete("/tasks/{id}", Long.MAX_VALUE)
                 .then()
                 .statusCode(204);
     }
@@ -247,11 +244,11 @@ class JdbcTaskTest {
     void updateTaskReturns404ForMissingTask() {
         User user = createUser("missing-update");
 
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("Missing task", user.getId(), "DONE"))
                 .when()
-                .put(tasksUrl() + "/" + Long.MAX_VALUE)
+                .put("/tasks/{id}", Long.MAX_VALUE)
                 .then()
                 .statusCode(404);
     }
@@ -261,17 +258,17 @@ class JdbcTaskTest {
         User user = createUser("update");
         Task task = createTask(user, "Before update", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(20));
 
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("After update", user.getId(), "DONE"))
                 .when()
-                .put(tasksUrl() + "/" + task.getId())
+                .put("/tasks/{id}", task.getId())
                 .then()
                 .statusCode(200);
 
-        Response response = RestAssured.given()
+        MockMvcResponse response = RestAssuredMockMvc.given()
                 .when()
-                .get(tasksUrl() + "/" + task.getId());
+                .get("/tasks/{id}", task.getId());
 
         response.then().statusCode(200);
         assertAll(
@@ -286,11 +283,11 @@ class JdbcTaskTest {
         User user = createUser("update-duplicate");
         Task task = createTask(user, "Single task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(30));
 
-        RestAssured.given()
+        RestAssuredMockMvc.given()
                 .contentType(JSON)
                 .body(taskPayload("Single task updated", user.getId(), "CLOSED"))
                 .when()
-                .put(tasksUrl() + "/" + task.getId())
+                .put("/tasks/{id}", task.getId())
                 .then()
                 .statusCode(200);
 
@@ -317,10 +314,6 @@ class JdbcTaskTest {
                   "status": "%s"
                 }
                 """.formatted(title, createdBy, status);
-    }
-
-    private String tasksUrl() {
-        return "http://localhost:" + port + "/tasks";
     }
 
     private void cleanupTestData() {
