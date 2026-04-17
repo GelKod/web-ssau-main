@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import static io.restassured.http.ContentType.JSON;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -610,5 +611,304 @@ void updateTaskToActiveStatusEnforcesActiveLimit() {
                     primary key (user_id, role_id)
                 )
                 """);
+    }
+
+    @Test
+    void findAllWithOnlyFromReturnsTasksFromBoundary() {
+        User user = createUser("from-only");
+        LocalDateTime baseTime = LocalDateTime.of(2026, 1, 10, 10, 0, 0);
+
+        Task before = createTask(user, "Before from", TaskStatus.OPEN, baseTime.minusMinutes(1));
+        Task exact = createTask(user, "Exact from", TaskStatus.OPEN, baseTime);
+        Task after = createTask(user, "After from", TaskStatus.DONE, baseTime.plusMinutes(1));
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", user.getId())
+                .queryParam("from", baseTime.toString())
+                .when()
+                .get();
+
+        List<Integer> ids = response.jsonPath().getList("id");
+        response.then().statusCode(200);
+
+        assertAll(
+                () -> assertFalse(ids.contains(before.getId().intValue())),
+                () -> assertTrue(ids.contains(exact.getId().intValue())),
+                () -> assertTrue(ids.contains(after.getId().intValue()))
+        );
+    }
+
+    @Test
+    void findAllWithOnlyToReturnsTasksUpToBoundary() {
+        User user = createUser("to-only");
+        LocalDateTime baseTime = LocalDateTime.of(2026, 1, 10, 12, 0, 0);
+
+        Task before = createTask(user, "Before to", TaskStatus.OPEN, baseTime.minusMinutes(1));
+        Task exact = createTask(user, "Exact to", TaskStatus.OPEN, baseTime);
+        Task after = createTask(user, "After to", TaskStatus.DONE, baseTime.plusMinutes(1));
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", user.getId())
+                .queryParam("to", baseTime.toString())
+                .when()
+                .get();
+
+        List<Integer> ids = response.jsonPath().getList("id");
+        response.then().statusCode(200);
+
+        assertAll(
+                () -> assertTrue(ids.contains(before.getId().intValue())),
+                () -> assertTrue(ids.contains(exact.getId().intValue())),
+                () -> assertFalse(ids.contains(after.getId().intValue()))
+        );
+    }
+
+    @Test
+    void findAllWithEqualFromAndToReturnsExactMomentTask() {
+        User user = createUser("equal-range");
+        LocalDateTime exactTime = LocalDateTime.of(2026, 1, 11, 9, 30, 0);
+
+        Task exact = createTask(user, "Exact moment task", TaskStatus.OPEN, exactTime);
+        createTask(user, "Before exact", TaskStatus.OPEN, exactTime.minusSeconds(1));
+        createTask(user, "After exact", TaskStatus.OPEN, exactTime.plusSeconds(1));
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", user.getId())
+                .queryParam("from", exactTime.toString())
+                .queryParam("to", exactTime.toString())
+                .when()
+                .get();
+
+        List<Integer> ids = response.jsonPath().getList("id");
+        response.then().statusCode(200);
+        assertEquals(List.of(exact.getId().intValue()), ids);
+    }
+
+    @Test
+    void findAllWithoutDateFiltersReturnsAllUserTasks() {
+        User user = createUser("no-date-filters");
+        User anotherUser = createUser("no-date-filters-other");
+
+        Task first = createTask(user, "User task 1", TaskStatus.OPEN, LocalDateTime.now().minusDays(1));
+        Task second = createTask(user, "User task 2", TaskStatus.DONE, LocalDateTime.now().minusHours(5));
+        createTask(anotherUser, "Another user task", TaskStatus.OPEN, LocalDateTime.now().minusHours(3));
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", user.getId())
+                .when()
+                .get();
+
+        List<Integer> ids = response.jsonPath().getList("id");
+        response.then().statusCode(200);
+
+        assertAll(
+                () -> assertEquals(2, ids.size()),
+                () -> assertTrue(ids.contains(first.getId().intValue())),
+                () -> assertTrue(ids.contains(second.getId().intValue()))
+        );
+    }
+
+    @Test
+    void findAllReturnsEmptyArrayWhenUserHasNoTasks() {
+        User user = createUser("empty-list");
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", user.getId())
+                .when()
+                .get();
+
+        response.then().statusCode(200);
+        assertEquals(List.of(), response.jsonPath().getList("$"));
+    }
+
+    @Test
+    void deleteTaskCreatedExactlyFiveMinutesAgoIsAllowed() {
+        User user = createUser("delete-boundary");
+        Task task = createTask(user, "Boundary delete task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(5));
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .when()
+                .delete("/{id}", task.getId())
+                .then()
+                .statusCode(204);
+
+        assertTrue(taskRepository.findById(task.getId()).isEmpty());
+    }
+
+    @Test
+    void updateTaskWithInvalidStatusReturnsBadRequest() {
+        User user = createUser("invalid-status");
+        Task task = createTask(user, "Task for invalid status", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(20));
+
+        String invalidPayload = """
+                {
+                  "title": "Task for invalid status",
+                  "createdBy": %d,
+                  "status": "EXPIRED"
+                }
+                """.formatted(user.getId());
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .contentType(JSON)
+                .body(invalidPayload)
+                .when()
+                .put("/{id}", task.getId())
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void updateTaskIgnoresCreatedByChange() {
+        User owner = createUser("owner");
+        User anotherUser = createUser("another-owner");
+        Task task = createTask(owner, "Original author task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(20));
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .contentType(JSON)
+                .body(taskPayload("Updated title", anotherUser.getId(), "DONE"))
+                .when()
+                .put("/{id}", task.getId())
+                .then()
+                .statusCode(200);
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .when()
+                .get("/{id}", task.getId());
+
+        response.then().statusCode(200);
+        assertAll(
+                () -> assertEquals("Updated title", response.jsonPath().getString("title")),
+                () -> assertEquals("DONE", response.jsonPath().getString("status")),
+                () -> assertEquals(owner.getId().intValue(), response.jsonPath().getInt("createdBy"))
+        );
+    }
+
+    @Test
+    void createTaskWithMalformedJsonReturnsBadRequest() {
+        String invalidJson = "{\"title\":\"Broken json\",\"createdBy\":1,\"status\":\"OPEN\"";
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .contentType(JSON)
+                .body(invalidJson)
+                .when()
+                .post()
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void createdAtIsReturnedInIso8601Format() {
+        User user = createUser("created-at-format");
+        Task task = createTask(user, "Date format task", TaskStatus.OPEN, LocalDateTime.of(2026, 2, 1, 8, 15, 0));
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .when()
+                .get("/{id}", task.getId());
+
+        response.then().statusCode(200);
+        String createdAt = response.jsonPath().getString("createdAt");
+
+        assertNotNull(createdAt);
+        assertDoesNotThrow(() -> LocalDateTime.parse(createdAt));
+    }
+
+    @Test
+    void tasksAreIsolatedBetweenUsersInListAndActiveCount() {
+        User firstUser = createUser("isolation-a");
+        User secondUser = createUser("isolation-b");
+
+        Task firstTask = createTask(firstUser, "First user task", TaskStatus.OPEN, LocalDateTime.now().minusHours(2));
+        createTask(secondUser, "Second user task 1", TaskStatus.OPEN, LocalDateTime.now().minusHours(1));
+        createTask(secondUser, "Second user task 2", TaskStatus.IN_PROGRESS, LocalDateTime.now().minusMinutes(30));
+
+        Response listResponse = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", firstUser.getId())
+                .when()
+                .get();
+
+        List<Integer> ids = listResponse.jsonPath().getList("id");
+        listResponse.then().statusCode(200);
+
+        Response countResponse = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", secondUser.getId())
+                .when()
+                .get("/active/count");
+
+        assertAll(
+                () -> assertEquals(List.of(firstTask.getId().intValue()), ids),
+                () -> assertEquals("2", countResponse.asString())
+        );
+    }
+
+    @Test
+    void activeCountWithoutUserIdReturnsBadRequest() {
+        RestAssured.given()
+                .spec(tasksRequest())
+                .when()
+                .get("/active/count")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    void activeCountForUnknownUserReturnsZero() {
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .queryParam("userId", Long.MAX_VALUE)
+                .when()
+                .get("/active/count");
+
+        response.then().statusCode(200);
+        assertEquals("0", response.asString());
+    }
+
+    @Test
+    void repeatedUpdateWithSameDataKeepsStateAndReturnsOk() {
+        User user = createUser("same-update");
+        Task task = createTask(user, "Stable task", TaskStatus.OPEN, LocalDateTime.now().minusMinutes(40));
+        String payload = taskPayload("Stable task updated", user.getId(), "DONE");
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .contentType(JSON)
+                .body(payload)
+                .when()
+                .put("/{id}", task.getId())
+                .then()
+                .statusCode(200);
+
+        RestAssured.given()
+                .spec(tasksRequest())
+                .contentType(JSON)
+                .body(payload)
+                .when()
+                .put("/{id}", task.getId())
+                .then()
+                .statusCode(200);
+
+        Response response = RestAssured.given()
+                .spec(tasksRequest())
+                .when()
+                .get("/{id}", task.getId());
+
+        response.then().statusCode(200);
+        assertAll(
+                () -> assertEquals("Stable task updated", response.jsonPath().getString("title")),
+                () -> assertEquals("DONE", response.jsonPath().getString("status")),
+                () -> assertEquals(user.getId().intValue(), response.jsonPath().getInt("createdBy"))
+        );
     }
 }
