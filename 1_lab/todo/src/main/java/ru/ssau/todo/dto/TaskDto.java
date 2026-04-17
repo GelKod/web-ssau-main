@@ -24,6 +24,18 @@ public class TaskDto {
         this.createdAt = createdAt;
     }
 
+    public TaskDto(String title, long id, TaskStatus status){
+        this.title = title;
+        this.id = id;
+        this.status = status;
+    }
+
+    public TaskDto(String title, long id){
+        this.title = title;
+        this.id = id;
+        this.status = TaskStatus.OPEN;
+    }
+
     public long getId() {
         return id;
     }
