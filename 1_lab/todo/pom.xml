@@ -52,6 +52,11 @@
 	</dependency>
 
 	<dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-security</artifactId>
+	</dependency>
+
+	<dependency>
     	<groupId>org.postgresql</groupId>
     	<artifactId>postgresql</artifactId>
 	</dependency>
@@ -67,6 +72,12 @@
 		<groupId>io.rest-assured</groupId>
 		<artifactId>spring-mock-mvc</artifactId>
 		<version>6.0.0</version>
+		<scope>test</scope>
+	</dependency>
+
+	<dependency>
+		<groupId>com.h2database</groupId>
+		<artifactId>h2</artifactId>
 		<scope>test</scope>
 	</dependency>
 </dependencies>

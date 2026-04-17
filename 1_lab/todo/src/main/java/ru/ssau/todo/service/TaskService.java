@@ -25,16 +25,13 @@ public class TaskService {
         this.userRepository = userRepository;
     }
 
-    public TaskDto create(TaskDto taskDto) {
-        Optional<User> optUser = userRepository.findById(taskDto.getCreatedBy());
-        if (optUser.isEmpty()) {
-            throw new IllegalStateException("Пользователь не найден");
-        }
+    public TaskDto create(TaskDto taskDto, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
 
-        User user = optUser.get();
         long activeCount = taskRepository.countActiveTasksByUserId(user.getId());
         if (activeCount >= 10) {
-            throw new IllegalStateException("У пользователя больше 10 активных задач");
+            throw new IllegalStateException("User has more than 10 active tasks");
         }
 
         if (taskDto.getStatus() == null) {
@@ -56,7 +53,7 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
-    public void updateTask(TaskDto taskDto) throws TaskNotFoundException {
+    public void updateTask(TaskDto taskDto) {
         Task existingTask = taskRepository.findById(taskDto.getId())
                 .orElseThrow(() -> new TaskNotFoundException(taskDto.getId()));
 
@@ -71,7 +68,7 @@ public class TaskService {
         if (!wasActive && isActive) {
             long activeCount = taskRepository.countActiveTasksByUserId(user.getId());
             if (activeCount >= 10) {
-                throw new IllegalStateException("У пользователя больше 10 активных задач");
+                throw new IllegalStateException("User has more than 10 active tasks");
             }
         }
 
@@ -93,7 +90,7 @@ public class TaskService {
         TaskDto task = optionalTask.get();
         LocalDateTime now = LocalDateTime.now();
         if (task.getCreatedAt().plusMinutes(5).isAfter(now)) {
-            throw new IllegalStateException("Невозможно удалить задачу, созданную менее 5 минут назад.");
+            throw new IllegalStateException("Cannot delete task created less than 5 minutes ago");
         }
 
         taskRepository.deleteById(id);
