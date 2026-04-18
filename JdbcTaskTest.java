@@ -27,6 +27,8 @@ public class JdbcTaskTest {
     private static final String LINE = "=".repeat(60);
     private static final String SUB_LINE = "-".repeat(60);
 
+    //3 lab tests
+
     public static void main(String[] args) throws Exception {
         printHeader("JDBC REPOSITORY TESTING");
         System.out.println("Server URL: " + BASE_URL);

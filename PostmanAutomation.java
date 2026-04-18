@@ -23,6 +23,8 @@ public class PostmanAutomation {
     private static final String LINE = "=".repeat(60);
     private static final String SUB_LINE = "-".repeat(60);
 
+    //1 lab tests
+
     public static void main(String[] args) throws Exception {
 
         printHeader("ЗАПУСК POSTMAN-АВТОМАТИЗАЦИИ");
