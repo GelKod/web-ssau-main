@@ -2,6 +2,7 @@ package ru.ssau.todo;
 
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Test;
@@ -19,21 +20,27 @@ import ru.ssau.todo.repository.TaskRepository;
 import ru.ssau.todo.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static io.restassured.http.ContentType.JSON;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Пример интеграционных тестов под ЛР5 (Angular + Auth API).
+ * Интеграционные тесты под ЛР5 (Angular + Auth API).
  *
- * В ЛР5 фронтенд ожидает:
- * - POST /auth/login (401 при неверных данных)
- * - GET /auth/me (возвращает id/username/roles, требует Basic Auth)
- *
- * Тесты сделаны в стиле ЛР4 (RestAssured + RANDOM_PORT) и рассчитаны на запуск
- * на вашей PostgreSQL (как у вас уже было в ЛР4).
+ * Покрывает API-пункты из задания:
+ * - /auth/login и /auth/me
+ * - список задач текущего пользователя
+ * - получение задачи по id (для редактирования)
+ * - создание/редактирование задачи
+ * - удаление только администратором
+ * - CORS preflight (вариант с CORS вместо proxy)
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -60,6 +67,13 @@ class JdbcLab5Test {
     private static final String USERNAME = "GelKod";
     private static final String ADMIN_USERNAME = "GelKod_admin";
     private static final String PASSWORD = "GelKod";
+    private static final String FRONTEND_ORIGIN = "http://localhost:4200";
+
+    private User regularUser;
+    private User adminUser;
+    private Task oldTaskRegularOpen;
+    private Task regularInProgressTask;
+    private Task adminDoneTask;
 
     @BeforeEach
     void setUp() {
@@ -74,26 +88,26 @@ class JdbcLab5Test {
         Role adminRole = roleRepository.save(new Role("ROLE_ADMIN"));
         Role userRole = roleRepository.save(new Role("ROLE_USER"));
 
-        User user = new User(USERNAME, passwordEncoder.encode(PASSWORD));
-        user.getRoles().add(userRole);
-        user = userRepository.save(user);
+        regularUser = new User(USERNAME, passwordEncoder.encode(PASSWORD));
+        regularUser.getRoles().add(userRole);
+        regularUser = userRepository.save(regularUser);
 
-        User admin = new User(ADMIN_USERNAME, passwordEncoder.encode(PASSWORD));
-        admin.getRoles().add(adminRole);
-        admin = userRepository.save(admin);
+        adminUser = new User(ADMIN_USERNAME, passwordEncoder.encode(PASSWORD));
+        adminUser.getRoles().add(adminRole);
+        adminUser = userRepository.save(adminUser);
 
         // Наполняем задачами с разным временем/статусами.
-        Task t1 = new Task("GelKod: старая OPEN", user, TaskStatus.OPEN);
-        t1.setCreatedAt(LocalDateTime.now().minusDays(2));
-        taskRepository.save(t1);
+        oldTaskRegularOpen = new Task("GelKod: старая OPEN", regularUser, TaskStatus.OPEN);
+        oldTaskRegularOpen.setCreatedAt(LocalDateTime.now().minusDays(2));
+        oldTaskRegularOpen = taskRepository.save(oldTaskRegularOpen);
 
-        Task t2 = new Task("GelKod: вчера IN_PROGRESS", user, TaskStatus.IN_PROGRESS);
-        t2.setCreatedAt(LocalDateTime.now().minusHours(18));
-        taskRepository.save(t2);
+        regularInProgressTask = new Task("GelKod: вчера IN_PROGRESS", regularUser, TaskStatus.IN_PROGRESS);
+        regularInProgressTask.setCreatedAt(LocalDateTime.now().minusHours(18));
+        regularInProgressTask = taskRepository.save(regularInProgressTask);
 
-        Task t3 = new Task("GelKod_admin: DONE недавно", admin, TaskStatus.DONE);
-        t3.setCreatedAt(LocalDateTime.now().minusMinutes(40));
-        taskRepository.save(t3);
+        adminDoneTask = new Task("GelKod_admin: DONE недавно", adminUser, TaskStatus.DONE);
+        adminDoneTask.setCreatedAt(LocalDateTime.now().minusMinutes(40));
+        adminDoneTask = taskRepository.save(adminDoneTask);
     }
 
     @Test
@@ -111,6 +125,18 @@ class JdbcLab5Test {
                 .post("/auth/login");
 
         response.then().statusCode(401);
+    }
+
+    @Test
+    void loginReturns401ForBlankPassword() {
+        RestAssured.given()
+                .baseUri("http://localhost")
+                .port(port)
+                .contentType(JSON)
+                .body("{\"username\":\"" + USERNAME + "\",\"password\":\"\"}")
+                .post("/auth/login")
+                .then()
+                .statusCode(401);
     }
 
     @Test
@@ -137,8 +163,9 @@ class JdbcLab5Test {
 
         assertNotNull(id);
         assertEquals(USERNAME, meUsername);
-
+        assertEquals(regularUser.getId().intValue(), id.intValue());
         assertTrue(me.jsonPath().getList("roles").contains("ROLE_USER"));
+        assertFalse(me.jsonPath().getList("roles").contains("ROLE_ADMIN"));
     }
 
     @Test
@@ -164,6 +191,115 @@ class JdbcLab5Test {
     }
 
     @Test
+    void tasksListReturnsOnlyCurrentUserTasksByUserId() {
+        Response response = tasksRequest(USERNAME, PASSWORD)
+                .queryParam("userId", regularUser.getId())
+                .when()
+                .get();
+
+        response.then().statusCode(200);
+
+        List<Map<String, Object>> tasks = response.jsonPath().getList("$");
+        assertEquals(2, tasks.size());
+        assertTrue(tasks.stream().allMatch(t -> ((Number) t.get("createdBy")).longValue() == regularUser.getId()));
+    }
+
+    @Test
+    void getTaskByIdWorksForExistingTaskAndReturns404ForMissing() {
+        tasksRequest(USERNAME, PASSWORD)
+                .when()
+                .get("/{id}", oldTaskRegularOpen.getId())
+                .then()
+                .statusCode(200);
+
+        tasksRequest(USERNAME, PASSWORD)
+                .when()
+                .get("/{id}", 9_999_999L)
+                .then()
+                .statusCode(404);
+    }
+
+    @Test
+    void createTaskReturns201AndUsesAuthenticatedUser() {
+        Response response = tasksRequest(USERNAME, PASSWORD)
+                .contentType(JSON)
+                .body("""
+                        {
+                          "title": "Создано из теста ЛР5",
+                          "status": "DONE",
+                          "createdBy": 123456
+                        }
+                        """)
+                .when()
+                .post();
+
+        response.then().statusCode(201);
+        assertAll(
+                () -> assertNotNull(response.jsonPath().getLong("id")),
+                () -> assertEquals("Создано из теста ЛР5", response.jsonPath().getString("title")),
+                () -> assertEquals("DONE", response.jsonPath().getString("status")),
+                () -> assertEquals(regularUser.getId().intValue(), response.jsonPath().getInt("createdBy")),
+                () -> assertNotNull(response.jsonPath().getString("createdAt"))
+        );
+    }
+
+    @Test
+    void createTaskWithoutStatusUsesOpenByDefault() {
+        Response response = tasksRequest(USERNAME, PASSWORD)
+                .contentType(JSON)
+                .body("""
+                        {
+                          "title": "Без статуса"
+                        }
+                        """)
+                .when()
+                .post();
+
+        response.then().statusCode(201);
+        assertEquals("OPEN", response.jsonPath().getString("status"));
+    }
+
+    @Test
+    void updateTaskByIdChangesTitleAndStatus() {
+        tasksRequest(USERNAME, PASSWORD)
+                .contentType(JSON)
+                .body("""
+                        {
+                          "id": 777777,
+                          "title": "Обновлённый заголовок",
+                          "status": "CLOSED"
+                        }
+                        """)
+                .when()
+                .put("/{id}", regularInProgressTask.getId())
+                .then()
+                .statusCode(200);
+
+        Response fetch = tasksRequest(USERNAME, PASSWORD)
+                .when()
+                .get("/{id}", regularInProgressTask.getId());
+
+        fetch.then().statusCode(200);
+        assertEquals("Обновлённый заголовок", fetch.jsonPath().getString("title"));
+        assertEquals("CLOSED", fetch.jsonPath().getString("status"));
+    }
+
+    @Test
+    void deleteTaskReturns403ForRegularUserAnd204ForAdmin() {
+        tasksRequest(USERNAME, PASSWORD)
+                .when()
+                .delete("/{id}", oldTaskRegularOpen.getId())
+                .then()
+                .statusCode(403);
+
+        tasksRequest(ADMIN_USERNAME, PASSWORD)
+                .when()
+                .delete("/{id}", oldTaskRegularOpen.getId())
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
     void meReturns401WithoutAuthHeader() {
         RestAssured.given()
                 .baseUri("http://localhost")
@@ -171,6 +307,29 @@ class JdbcLab5Test {
                 .get("/auth/me")
                 .then()
                 .statusCode(401);
+    }
+
+    @Test
+    void corsPreflightAllowsFrontendOriginForAuthMe() {
+        Response response = RestAssured.given()
+                .baseUri("http://localhost")
+                .port(port)
+                .header("Origin", FRONTEND_ORIGIN)
+                .header("Access-Control-Request-Method", "GET")
+                .header("Access-Control-Request-Headers", "Authorization, Content-Type")
+                .when()
+                .options("/auth/me");
+
+        response.then().statusCode(200);
+        assertEquals(FRONTEND_ORIGIN, response.getHeader("Access-Control-Allow-Origin"));
+    }
+
+    private RequestSpecification tasksRequest(String username, String password) {
+        return RestAssured.given()
+                .baseUri("http://localhost")
+                .port(port)
+                .basePath("/tasks")
+                .auth().preemptive().basic(username, password);
     }
 }
 
