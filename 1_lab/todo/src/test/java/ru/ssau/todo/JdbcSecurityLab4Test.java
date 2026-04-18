@@ -65,9 +65,9 @@ class JdbcSecurityLab4Test {
 
     @AfterEach
     void tearDown() {
-        //jdbcTemplate.update("DELETE FROM task WHERE created_by IN (SELECT id FROM \"user\" WHERE username LIKE ?)", TEST_USER_PREFIX + "%");
-        //jdbcTemplate.update("DELETE FROM user_role WHERE user_id IN (SELECT id FROM \"user\" WHERE username LIKE ?)", TEST_USER_PREFIX + "%");
-        //jdbcTemplate.update("DELETE FROM \"user\" WHERE username LIKE ?", TEST_USER_PREFIX + "%");
+        // jdbcTemplate.update("DELETE FROM task WHERE created_by IN (SELECT id FROM \"user\" WHERE username LIKE ?)", TEST_USER_PREFIX + "%");
+        // jdbcTemplate.update("DELETE FROM user_role WHERE user_id IN (SELECT id FROM \"user\" WHERE username LIKE ?)", TEST_USER_PREFIX + "%");
+        // jdbcTemplate.update("DELETE FROM \"user\" WHERE username LIKE ?", TEST_USER_PREFIX + "%");
     }
 
     @Test
