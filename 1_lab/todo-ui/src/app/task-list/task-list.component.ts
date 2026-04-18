@@ -46,7 +46,7 @@ export class TaskListComponent implements OnInit {
         if (err.status === 403) {
           this.deleteMessage.set('Удалять задачи может только администратор.');
         } else {
-          this.deleteMessage.set('Не удалось удалить задачу.');
+          this.deleteMessage.set('Здача создана ранее 5 минут.');
         }
       },
     });
