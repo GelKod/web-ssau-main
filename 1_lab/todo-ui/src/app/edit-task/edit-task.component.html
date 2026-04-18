@@ -1,0 +1,34 @@
+<section class="page">
+  <h1>{{ isCreate() ? 'Новая задача' : 'Редактирование задачи' }}</h1>
+
+  @if (loadError(); as err) {
+    <p class="banner error">{{ err }}</p>
+  } @else {
+    @if (saveError(); as se) {
+      <p class="banner error">{{ se }}</p>
+    }
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label>
+        Название
+        <input type="text" formControlName="title" />
+      </label>
+      @if (form.controls.title.touched && form.controls.title.hasError('required')) {
+        <p class="field-error">Укажите название.</p>
+      }
+
+      <label>
+        Статус
+        <select formControlName="status">
+          @for (s of statuses; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="actions">
+        <button type="submit" [disabled]="form.invalid">Сохранить</button>
+        <button type="button" class="ghost" (click)="cancel()">Отмена</button>
+      </div>
+    </form>
+  }
+</section>

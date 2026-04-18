@@ -1,0 +1,13 @@
+<article class="task">
+  <div class="head">
+    <h2 class="title">{{ task().title }}</h2>
+    <span class="badge" [class]="statusClass(task().status)">{{ task().status }}</span>
+  </div>
+  <p class="meta">Создано: {{ task().createdAt | date: 'short' }}</p>
+  <div class="actions">
+    <a class="btn" [routerLink]="['/tasks', task().id]">Редактировать</a>
+    @if (showDelete()) {
+      <button type="button" class="btn danger" (click)="onDelete()">Удалить</button>
+    }
+  </div>
+</article>

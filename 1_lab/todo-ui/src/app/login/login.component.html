@@ -1,0 +1,17 @@
+<section class="card">
+  <h1>Вход</h1>
+  @if (errorMessage(); as msg) {
+    <p class="error" role="alert">{{ msg }}</p>
+  }
+  <form (ngSubmit)="submit()">
+    <label>
+      Логин
+      <input type="text" name="username" [(ngModel)]="username" required autocomplete="username" />
+    </label>
+    <label>
+      Пароль
+      <input type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" />
+    </label>
+    <button type="submit">Войти</button>
+  </form>
+</section>

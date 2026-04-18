@@ -1,0 +1,48 @@
+.card {
+  max-width: 360px;
+  margin: 3rem auto;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+h1 {
+  margin-top: 0;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+input {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background: #1a56db;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1547b8;
+}
+
+.error {
+  color: #b00020;
+  margin: 0 0 0.5rem;
+}

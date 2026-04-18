@@ -1,0 +1,33 @@
+<section class="page">
+  <header class="toolbar">
+    <div>
+      <h1>Мои задачи</h1>
+      @if (auth.currentUser(); as u) {
+        <p class="sub">Пользователь: {{ u.username }}</p>
+      }
+    </div>
+    <div class="toolbar-actions">
+      <a routerLink="/tasks/new" class="primary">Создать задачу</a>
+      <button type="button" class="ghost" (click)="auth.logout()">Выйти</button>
+    </div>
+  </header>
+
+  @if (loadError(); as le) {
+    <p class="banner error">{{ le }}</p>
+  }
+  @if (deleteMessage(); as dm) {
+    <p class="banner warn">{{ dm }}</p>
+  }
+
+  <div class="list">
+    @for (task of tasks(); track task.id) {
+      <app-task-item
+        [task]="task"
+        [showDelete]="auth.isAdmin()"
+        (deleteTask)="onDeleteTask($event)"
+      />
+    } @empty {
+      <p class="empty">Задач пока нет.</p>
+    }
+  </div>
+</section>

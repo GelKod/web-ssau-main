@@ -1,0 +1,83 @@
+.task {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  background: #fafafa;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.meta {
+  margin: 0.5rem 0 0.75rem;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.st-open {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.st-progress {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.st-done {
+  background: #e8f5e9;
+  color: #1b5e20;
+}
+
+.st-closed {
+  background: #eceff1;
+  color: #37474f;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 1px solid #1a56db;
+  color: #1a56db;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #eef3ff;
+}
+
+.btn.danger {
+  border-color: #b00020;
+  color: #b00020;
+}
+
+.btn.danger:hover {
+  background: #fdecea;
+}
